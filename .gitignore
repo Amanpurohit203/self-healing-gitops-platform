@@ -1,0 +1,101 @@
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+.terraform.lock.hcl.*.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pyc
+.env
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+*.egg-info/
+.dist/*
+*egg*
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.pip
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+htmlcov/
+.tox/
+.nox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Kubernetes
+*.kubeconfig
+.kube/
+.kubeconfig
+.kubectl_*
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Secrets
+*.secret
+*.pem
+*.key
+.secret
+.env.*
+! .env.example
+
+# Tmp
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Docs
+.site/
+.venv/
+mkdocs.yml
+mkdocs.yaml

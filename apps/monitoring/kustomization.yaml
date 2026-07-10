@@ -1,0 +1,24 @@
+# Monitoring Stack Kustomization
+# This kustomization builds the Prometheus, Grafana, and Loki stack
+
+resources:
+  - namespace.yaml
+  - prometheus-operator/
+  - grafana/
+  - loki/
+  - prometheus-adapter/
+
+configMapGenerator:
+  - name: monitoring-config
+    literals:
+      - PROMETHEUS_RETENTION_TIME=15d
+      - GRAFANA_ADMIN_USER=admin
+      - GRAFANA_ADMIN_PASSWORD=grafana
+
+generatorOptions:
+  disableNameSuffixHash: true
+
+# Common labels for all resources
+commonLabels:
+  app.kubernetes.io/part-of: monitoring
+  app.kubernetes.io/instance: monitoring-stack

@@ -1,0 +1,101 @@
+# Open WebUI Deployment with Argo Rollouts
+# Uses the official Open WebUI image and connects to RDS PostgreSQL and Gemini API
+
+apiVersion: argoproj.io/v1alpha1
+kind: Rollout
+metadata:
+  name: openwebui
+  labels:
+    app: openwebui
+spec:
+  replicas: 2
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: openwebui
+  strategy:
+    canary:
+      steps:
+      - setWeight: 5
+      - pause: {duration: 5m}
+      - setWeight: 20
+      - pause: {duration: 5m}
+      - setWeight: 40
+      - pause: {duration: 5m}
+      - setWeight: 60
+      - pause: {duration: 5m}
+      - setWeight: 80
+      - pause: {duration: 5m}
+  selector:
+    matchLabels:
+      app: openwebui
+  template:
+    metadata:
+      labels:
+        app: openwebui
+      annotations:
+        checksum/config: "{{ include (print $.Template.BasePath \"/configmap.yaml\") . | sha256sum }}"
+        checksum/secrets: "{{ include (print $.Template.BasePath \"/secret.yaml\") . | sha256sum }}"
+    spec:
+      serviceAccountName: openwebui
+      containers:
+      - name: openwebui
+        image: ghcr.io/open-webui/open-webui:main
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: openwebui-db-secret
+              key: database-url
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: openwebui-gemini-secret
+              key: api-key
+        - name: WEBUI_NAME
+          value: "Self-Healing GitOps Platform"
+        - name: WEBUI_FAVICON_URL
+          value: "https://raw.githubusercontent.com/open-webui/open-webui/main/src/favicon.ico"
+        - name: WEBUI_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: openwebui-config
+              key: WEBUI_NAME
+        - name: WEBUI_DESCRIPTION
+          valueFrom:
+            configMapKeyRef:
+              name: openwebui-config
+              key: WEBUI_DESCRIPTION
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        volumeMounts:
+        - name: config
+          mountPath: /app/backend/data
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config
+        emptyDir: {}
+      - name: tmp
+        emptyDir: {}

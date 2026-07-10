@@ -1,0 +1,29 @@
+# Horizontal Pod Autoscaler for Open WebUI
+# Automatically scales the number of replicas based on CPU utilization
+
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: openwebui-hpa
+  labels:
+    app: openwebui
+spec:
+  scaleTargetRef:
+    apiGroup: argoproj.io
+    kind: Rollout
+    name: openwebui
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80

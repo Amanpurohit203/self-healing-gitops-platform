@@ -1,0 +1,367 @@
+# Kyverno Installation Manifest
+# Installs the Kyverno policy engine for Kubernetes
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kyverno
+  labels:
+    pod-security.k8
+---
+apiVersion: operator.helm.sh/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterpolicies.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          {
+    policy
+      group:   rbac.authorization.k8s.io
+      resource: clusterroles
+    }
+  scope: Namespaced
+  names:
+    plural:   policies
+    singular: policy
+    kind:     Policy
+    shortNames:
+    - pol
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clustervalidationpolicies.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      match:
+                        type: object
+                      validate:
+                        type: object
+                        properties:
+                          pattern:
+                            type: string
+                          anyAllOf:
+                            type: array
+                            items:
+                              type: object
+                          anyAnyOf:
+                            type: array
+                            items:
+                              type: object
+                          allOf:
+                            type: array
+                            items:
+                              type: object
+                          anyOf:
+                            type: array
+                            items:
+                              type: object
+  scope: Cluster
+  names:
+    plural: clusterpolicies
+    singular: clusterpolicy
+    kind: ClusterPolicy
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: clusterverifyimages.kyverno.io
+spec:
+  group: kyverno.io
+  version: v1
+  names:
+    kind: ClusterVerifyImage
+    plural: clusterverifyimages
+    singular: clusterverifyimage
+  scope: Cluster
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: policies.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                background:
+                  type: boolean
+                rules:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      name:
+                        type: string
+                      validate:
+                        type: object
+                        properties:
+                          pattern:
+                            type: string
+  scope: Namespaced
+  names:
+    kind: Policy
+    plural: policies
+    singular: policy
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: verifyimages.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      scope: Namespaced
+      names:
+        kind: VerifyImage
+        plural: verifyimages
+        singular: verifyimage
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: ubecpoliciess.kyverno.io
+spec:
+  group: kyverno.io
+  versions:
+    - name: v1
+      served: true
+      storage: true
+      scope: Namespaced
+      names:
+        kind: UbekiPolicy
+        plural: ubecpoliciess
+        singular: ubecpolices
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kyverno
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kyverno-rolebinding
+  namespace: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kyverno-role
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kyverno
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kyverno
+      app.kubernetes.io/instance: kyverno
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: kyverno
+        app.kubernetes.io/instance: kyverno
+    spec:
+      serviceAccountName: kyverno
+      containers:
+      - name: kyverno
+        image: ghcr.io/kyverno/kyverno:v1.10.0
+        args:
+        - --server
+        - --generate-name=kyverno-
+        - --kubeconfig=/etc/kubernetes/kubeconfig
+        - --listen=https://0.0.0.0:8443
+        - --metrics-listen=0.0.0.0:9090
+        env:
+        - name: KYVERNO_IMAGE
+          value: ghcr.io/kyverno/kyverno:v1.10.0
+        ports:
+        - containerPort: 8443
+          name: https
+        - containerPort: 9090
+          name: metrics
+        volumeMounts:
+        - name: kubeconfig
+          mountPath: /etc/kubernetes
+          readOnly: true
+      volumes:
+      - name: kubeconfig
+        secret:
+          secretName: kubeconfig
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kyverno-svc
+  namespace: kyverno
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+spec:
+  selector:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+  ports:
+  - name: https
+    port: 443
+    targetPort: 8443
+  - name: metrics
+    port: 9090
+    targetPort: 9090
+  type: ClusterIP
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kyverno-cluster-role
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+rules:
+- apiGroups: ["kyverno.io"]
+  resources: ["*"]
+  verbs: ["*"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["validatingwebhookconfigurations", "mutatingwebhookconfigurations"]
+  verbs: ["*"]
+- apiGroups: [""]
+  resources: ["namespaces", "events"]
+  verbs: ["*"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["clusterroles", "clusterrolebindings"]
+  verbs: ["*"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["*"]
+- apiGroups: ["apps"]
+  resources: ["daemonsets", "deployments", "replicasets", "statefulsets"]
+  verbs: ["*"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["*"]
+- apiGroups: ["autoscaling"]
+  resources: ["horizontalpodautoscalers"]
+  verbs: ["*"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["*"]
+- apiGroups: ["certificates.k8s.io"]
+  resources: ["certificatesigningrequests"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kyverno-cluster-rolebinding
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kyverno-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: kyverno
+  namespace: kyverno
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: kyverno-validation-webhook
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+webhooks:
+- name: validate.kyverno.svc-fail
+  clientConfig:
+    service:
+      namespace: kyverno
+      name: kyverno-svc
+      path: /validate
+    caBundle: Cg==
+  rules:
+  - apiGroups: ["*"]
+    apiVersions: ["*"]
+    operations: ["CREATE", "UPDATE", "DELETE"]
+    resources: ["*"]
+    scope: "*"
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  sideEffects: None
+  timeoutSeconds: 30
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: kyverno-mutation-webhook
+  labels:
+    app.kubernetes.io/name: kyverno
+    app.kubernetes.io/instance: kyverno
+webhooks:
+- name: mutate.kyverno.svc
+  clientConfig:
+    service:
+      namespace: kyverno
+      name: kyverno-svc
+      path: /mutate
+    caBundle: Cg==
+  rules:
+  - apiGroups: ["*"]
+    apiVersions: ["*"]
+    operations: ["CREATE", "UPDATE"]
+    resources: ["*"]
+    scope: "*"
+  failurePolicy: Fail
+  matchPolicy: Equivalent
+  sideEffects: NoneOnDryRun
+  timeoutSeconds: 30

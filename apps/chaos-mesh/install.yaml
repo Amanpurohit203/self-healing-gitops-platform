@@ -1,0 +1,41 @@
+# Chaos Mesh Installation Manifest
+# Installs Chaos Mesh for chaos engineering experiments
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: chaos-mesh
+  labels:
+    name: chaos-mesh
+    pod-security.kubernetes.io/enforce: privileged
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChart
+metadata:
+  name: chaos-mesh
+  namespace: kube-system
+spec:
+  chart: https://charts.chaos-mesh.org/v4.5.0/chaos-mesh-4.5.0.tgz
+  targetNamespace: chaos-mesh
+  valuesContent: |-
+    timezone: local
+    daemonSet:
+      tolerations:
+      - operator: Exists
+    controllerManager:
+      tolerations:
+      - operator: Exists
+    webhook:
+      tolerations:
+      - operator: Exists
+    dashboard:
+      enabled: true
+      service:
+        type: ClusterIP
+    # Enable all chaos types
+    ansible:
+      enabled: false
+    # For chaos experiments that require privileged access
+    chaosDaemon:
+      runtime: containerd
+      socketPath: /run/containerd/containerd.sock

@@ -1,0 +1,101 @@
+# Prometheus Alerting Rules for Remediation Engine
+# Defines alerts that will trigger automated remediation actions
+
+groups:
+- name: self-healing.rules
+  rules:
+  - alert: HighCPUUsage
+    expr: |
+      avg by (namespace, deployment, pod) (rate(container_cpu_usage_seconds_total[5m])) > 0.8
+    for: 5m
+    labels:
+      severity: warning
+      remediation: scale_deployment
+    annotations:
+      summary: "High CPU usage detected (instance {{ $labels.instance }})"
+      description: "CPU usage is above 80% for more than 5 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/High-CPU-Usage"
+
+  - alert: HighMemoryUsage
+    expr: |
+      (container_memory_working_set_bytes{container!=""} / machine_memory_bytes) > 0.85
+    for: 5m
+    labels:
+      severity: warning
+      remediation: restart_pod
+    annotations:
+      summary: "High memory usage detected (instance {{ $labels.instance }})"
+      description: "Memory usage is above 85% for more than 5 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/High-Memory-Usage"
+
+  - alert: PodCrashLooping
+    expr: |
+      rate(kube_pod_container_status_restarts_total[5m]) > 0
+    for: 2m
+    labels:
+      severity: critical
+      remediation: restart_pod
+    annotations:
+      summary: "Pod crash looping (instance {{ $labels.instance }})"
+      description: "Pod has restarted more than once in the last 2 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/Pod-CrashLooping"
+
+  - alert: NodeDown
+    expr: |
+      up{job="node-exporter"} == 0
+    for: 2m
+    labels:
+      severity: critical
+      remediation: drain_node
+    annotations:
+      summary: "Node down (instance {{ $labels.instance }})"
+      description: "Node has been unreachable for more than 2 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/Node-Down"
+
+  - alert: DiskFull
+    expr: |
+      (node_filesystem_size_bytes{mountpoint="/"} - node_filesystem_free_bytes{mountpoint="/"}) / node_filesystem_size_bytes{mountpoint="/"} > 0.9
+    for: 5m
+    labels:
+      severity: warning
+      remediation: cleanup_disk
+    annotations:
+      summary: "Disk usage critical (instance {{ $labels.instance }})"
+      description: "Disk usage is above 90% for more than 5 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/Disk-Full"
+
+  - alert: CertificateExpiring
+    expr: |
+      cert_manager_certificate_not_after_seconds{condition="True"} - time() < 86400
+    for: 1h
+    labels:
+      severity: warning
+      remediation: renew_certificate
+    annotations:
+      summary: "Certificate expiring soon (instance {{ $labels.instance }})"
+      description: "Certificate is expiring in less than 24 hours."
+      runbook: "https://github.com/yourorg/platform/wiki/Certificate-Expiring"
+
+  - alert: HighLatency
+    expr: |
+      histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket[5m])) by (le, service, namespace)) > 1
+    for: 5m
+    labels:
+      severity: warning
+      remediation: scale_deployment
+    annotations:
+      summary: "High latency detected (instance {{ $labels.instance }})"
+      description: "95th percentile latency is above 1 second for more than 5 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/High-Latency"
+
+  - alert: ErrorRateHigh
+    expr: |
+      sum by (service, namespace) (rate(http_requests_total{code=~"5.."}[5m])) / sum by (service, namespace) (rate(http_requests_total[5m])) > 0.05
+    for: 5m
+    labels:
+      severity: warning
+      remediation: rollback_deployment
+    annotations:
+      summary: "High error rate detected (instance {{ $labels.instance }})"
+      description: "Error rate is above 5% for more than 5 minutes."
+      runbook: "https://github.com/yourorg/platform/wiki/High-Error-Rate"

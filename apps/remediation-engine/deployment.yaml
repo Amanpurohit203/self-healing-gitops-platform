@@ -1,0 +1,72 @@
+# Remediation Engine Deployment
+# Deploys the Python-based remediation engine that monitors for incidents and takes corrective action
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: remediation-engine
+  labels:
+    app: remediation-engine
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: remediation-engine
+  template:
+    metadata:
+      labels:
+        app: remediation-engine
+      annotations:
+        checksum/config: "{{ include (print $.Template.BasePath \"/configmap.yaml\") . | sha256sum }}"
+        checksum/secrets: "{{ include (print $.Template.BasePath \"/secret.yaml\") . | sha256sum }}"
+    spec:
+      serviceAccountName: remediation-engine
+      containers:
+      - name: remediation-engine
+        image: ghcr.io/amanp24/remediation-engine:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: PROMETHEUS_URL
+          valueFrom:
+            configMapKeyRef:
+              name: remediation-engine-config
+              key: PROMETHEUS_URL
+        - name: LOKI_URL
+          valueFrom:
+            configMapKeyRef:
+              name: remediation-engine-config
+              key: LOKI_URL
+        - name: KUBECONFIG
+          value: "/kube/config"
+        - name: LOG_LEVEL
+          valueFrom:
+            configMapKeyRef:
+              name: remediation-engine-config
+              key: LOG_LEVEL
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: config
+          mountPath: /app/config
+        - name: kubeconfig
+          mountPath: /kube
+          readOnly: true
+        - name: tmp
+          mountPath: /tmp
+      volumes:
+      - name: config
+        configMap:
+          name: remediation-engine-config
+      - name: kubeconfig
+        secret:
+          secretName: remediation-engine-kubeconfig
+      - name: tmp
+        emptyDir: {}

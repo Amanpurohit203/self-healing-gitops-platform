@@ -1,0 +1,21 @@
+# AWS Load Balancer Controller Kustomization
+# Installs the AWS Load Balancer Controller for ALB/NLB support
+
+resources:
+  - namespace.yaml
+ 2.0
+---
+apiVersion: helm-values.yaml
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - clusterrole.yaml
+  - clusterrolebinding.yaml
+
+# Common labels for all resources
+commonLabels:
+  app.kubernetes.io/name: aws-load-balancer-controller
+  app.kubernetes.io/instance: aws-load-balancer-controller
+  app.kubernetes.io/version: v2.5.4
+  app.kubernetes.io/part-of: aws-load-balancer-controller
